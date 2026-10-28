@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>План лечения на снимке</title>
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="vendor/pdf-fonts.js"></script>
+<link rel="stylesheet" href="styles.css">
+
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true"><path d="M9.5 4.5c-3.6 0-6 2.9-6 6.8 0 3.2 1.4 5.3 2.6 7.6.9 1.8 1.2 4.3 1.6 6.6.3 1.6.9 2.5 1.9 2.5 1.2 0 1.6-1.2 2-3.4.5-2.6 1.2-5.1 4.4-5.1s3.9 2.5 4.4 5.1c.4 2.2.8 3.4 2 3.4 1 0 1.6-.9 1.9-2.5.4-2.3.7-4.8 1.6-6.6 1.2-2.3 2.6-4.4 2.6-7.6 0-3.9-2.4-6.8-6-6.8-2.6 0-4.1 1.4-6.5 1.4S12.1 4.5 9.5 4.5Z" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/><circle cx="24.5" cy="8" r="3.4" fill="var(--marker)" stroke="var(--ink)" stroke-width="1.4"/></svg>
+    <div><h1>План лечения на снимке</h1><small>Метки зубов на снимке, работы и стоимость, лист для пациента</small></div>
+  </div>
+  <div class="top-actions">
+    <button class="btn ghost" id="newPlan" type="button">Новый план</button>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="viewer" aria-label="Снимок">
+    <div class="vbar">
+      <div class="left">
+        <label class="vbtn" for="fileIn">
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 11V2.5M4.5 6 8 2.5 11.5 6M2.5 10.5v3h11v-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Загрузить снимок
+        </label>
+        <input id="fileIn" class="sr" type="file" accept="image/*" multiple>
+      </div>
+      <div class="right">
+        <span class="seg-label" id="sizeLabel">Метки</span>
+        <div class="seg" role="group" aria-labelledby="sizeLabel" id="sizeSeg">
+          <button type="button" data-size="s" aria-pressed="false">S</button>
+          <button type="button" data-size="m" aria-pressed="true">M</button>
+          <button type="button" data-size="l" aria-pressed="false">L</button>
+        </div>
+      </div>
+    </div>
+    <div class="banner" id="exampleBanner" hidden>
+      <span><b>Пример.</b> Вместо настоящего снимка нарисована схема, строки и цены условные. Загрузите свой снимок, и пример уберётся сам.</span>
+      <button class="vbtn" type="button" id="clearExample">Убрать пример</button>
+    </div>
+    <div class="thumbs" id="thumbs" hidden></div>
+    <div class="stage" id="stage">
+      <div class="empty" id="emptyState">
+        <strong>Добавьте снимок</strong>
+        <span>Перетащите файл сюда, вставьте скриншот через <kbd>Ctrl</kbd>+<kbd>V</kbd> или выберите файл.</span>
+        <label class="vbtn" for="fileIn">Выбрать файл</label>
+        <span class="fine">PNG или JPG: скриншот 3D-реконструкции из программы КЛКТ, ОПТГ, прицельный снимок. Файлы DICOM здесь не открываются, сделайте скриншот нужного ракурса.</span>
+      </div>
+      <div class="stage-inner" id="inner" hidden>
+        <img id="stageImg" alt="Снимок пациента">
+        <svg class="leaders" id="leaders" aria-hidden="true"></svg>
+        <div id="markers"></div>
+      </div>
+    </div>
+    <div class="vhint" id="vhint">
+      <span>Клик по снимку ставит метку зуба</span>
+      <span>Точку и цифру можно перетаскивать</span>
+      <span><kbd>Delete</kbd> удаляет выбранную метку</span>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="План лечения">
+    <div class="fields">
+      <label class="f wide">Пациент<input id="fPatient" type="text" autocomplete="off" placeholder="Фамилия Имя"></label>
+      <label class="f">Дата<input id="fDate" type="date"></label>
+      <label class="f">Врач<input id="fDoctor" type="text" autocomplete="off" placeholder="Фамилия И. О."></label>
+    </div>
+
+    <div>
+      <div class="section-title">
+        <h2>Работы</h2>
+        <div class="row-tools">
+          <button class="btn small" type="button" id="addRow">+ Строка без метки</button>
+          <button class="btn small ghost" type="button" id="sortRows">По номерам зубов</button>
+        </div>
+      </div>
+      <div class="rows" id="rows"></div>
+      <div class="total">
+        <span>Итого</span>
+        <div><output id="total">0</output>
+          <span class="cur">₽</span>
+        </div>
+      </div>
+    </div>
+
+    <label class="f">Примечание для пациента
+      <textarea id="fNote" rows="2"></textarea>
+    </label>
+
+    <div>
+      <div class="export">
+        <button class="btn primary" type="button" id="dlPdf">Скачать PDF</button>
+        <button class="btn" type="button" id="dlPng">Скачать PNG</button>
+        <button class="btn ghost" type="button" id="preview">Предпросмотр листа</button>
+      </div>
+      <div class="status" id="status" role="status"></div>
+    </div>
+
+    <details class="prices" id="pricesBox">
+      <summary>Мой прайс <span class="sr">для подсказок</span></summary>
+      <div class="plist" id="plist"></div>
+    </details>
+  </section>
+</main>
+
+<div class="picker" id="picker" role="dialog" aria-label="Номер зуба" hidden>
+  <div class="pk-head">
+    <strong>Номер зуба</strong>
+    <div class="seg" role="group" aria-label="Набор зубов" id="pkSet">
+      <button type="button" data-set="perm" aria-pressed="true">Постоянные</button>
+      <button type="button" data-set="milk" aria-pressed="false">Молочные</button>
+    </div>
+    <button class="ic" type="button" id="pkClose" aria-label="Закрыть">×</button>
+  </div>
+  <div class="pk-sides"><span>Правая сторона пациента</span><span>Левая</span></div>
+  <div class="pk-grid" id="pkGrid"></div>
+  <form class="pk-form" id="pkForm">
+    <input class="in" id="pkInput" inputmode="numeric" maxlength="3" placeholder="Номер" aria-label="Номер зуба">
+    <button class="btn small primary" type="submit">Поставить</button>
+    <button class="btn small ghost" type="button" id="pkNone">Без номера</button>
+  </form>
+</div>
+
+<datalist id="priceNames"></datalist>
+<div class="modal" id="modal" hidden>
+  <div class="modal-bar"><strong>Предпросмотр листа</strong><button class="btn small" type="button" id="modalClose">Закрыть</button></div>
+  <div class="modal-body" id="modalBody"></div>
+</div>
+<div class="toast" id="toast" hidden><span id="toastText"></span><button type="button" id="toastBtn">Вернуть</button></div>
+
+<script src="app.js"></script>
+</body>
+</html>
